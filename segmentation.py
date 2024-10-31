@@ -30,15 +30,16 @@ def main():
     low_confidence = data.loc[data.iloc[:, 2] != data.iloc[:, 3]]
     # high_confidence.to_csv("low_confidence_segmentations.csv")
 
-    segmentation_methods = ["Manual", "ChatGPT_4o", "Instant_Segment"]
+    segmentation_methods = ["Manual1", "Manual2",
+                            "ChatGPT_4o", "Instant_Segment"]
     high_confidence_sim_mat = pd.DataFrame(
         0, segmentation_methods, segmentation_methods, dtype=float)
     for i in range(len(high_confidence_sim_mat)):
         for j in range(len(high_confidence_sim_mat)):
             scores = []
             for k in range(len(high_confidence)):
-                scores.append(calc_jaccard(high_confidence.iloc[k, i+3],
-                                           high_confidence.iloc[k, j+3]))
+                scores.append(calc_jaccard(high_confidence.iloc[k, i+2],
+                                           high_confidence.iloc[k, j+2]))
             high_confidence_sim_mat.iloc[i, j] = np.mean(
                 pd.Series(scores).dropna())
     print(high_confidence_sim_mat)
@@ -49,8 +50,8 @@ def main():
         for j in range(len(full_sim_mat)):
             scores = []
             for k in range(len(data)):
-                scores.append(calc_jaccard(data.iloc[k, i+3],
-                                           data.iloc[k, j+3]))
+                scores.append(calc_jaccard(data.iloc[k, i+2],
+                                           data.iloc[k, j+2]))
             full_sim_mat.iloc[i, j] = np.mean(pd.Series(scores).dropna())
     print(full_sim_mat)
 
