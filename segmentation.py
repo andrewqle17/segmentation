@@ -13,48 +13,27 @@ import pandas as pd
 
 
 def main():
-    data = pd.read_csv("manual_label_sample_combined.csv",
-                       skiprows=502, header=None)
+    data = pd.read_csv("combined_segmentation_sample.csv",
+                       header=0,
+                       )
     unigrams = set_ngrams("count_1w.txt")
     bigrams = set_ngrams("count_2w.txt", n=2)
-    is_results_full = pd.DataFrame(
-        is_segment(data.iloc[:, 2], unigrams, bigrams)
+    is_results = pd.DataFrame(
+        instant_segment(data["Domain_Name"].str[:-4], unigrams, bigrams)
     )
-    for i in range(len(is_results_full)):
-        is_results_full.iloc[i, :] = combine_segments(
-            is_results_full.iloc[i, :])
-    is_results_full = is_results_full.iloc[:, 0]
-
-    data = pd.concat([data, is_results_full], axis=1, ignore_index=True)
-    high_confidence = data.loc[data.iloc[:, 2] == data.iloc[:, 3]]
-    low_confidence = data.loc[data.iloc[:, 2] != data.iloc[:, 3]]
-    # high_confidence.to_csv("low_confidence_segmentations.csv")
+    for i in range(len(is_results)):
+        is_results.iloc[i, :] = combine_segments(
+            is_results.iloc[i, :])
+    is_results = is_results.iloc[:, 0]
+    data["Instant_Segment"] = is_results
 
     segmentation_methods = ["Manual1", "Manual2",
                             "ChatGPT_4o", "Instant_Segment"]
-    high_confidence_sim_mat = pd.DataFrame(
-        0, segmentation_methods, segmentation_methods, dtype=float)
-    for i in range(len(high_confidence_sim_mat)):
-        for j in range(len(high_confidence_sim_mat)):
-            scores = []
-            for k in range(len(high_confidence)):
-                scores.append(calc_jaccard(high_confidence.iloc[k, i+2],
-                                           high_confidence.iloc[k, j+2]))
-            high_confidence_sim_mat.iloc[i, j] = np.mean(
-                pd.Series(scores).dropna())
-    print(high_confidence_sim_mat)
+    metrics = [calc_exact_match, calc_jaccard]
 
-    full_sim_mat = pd.DataFrame(
-        0, segmentation_methods, segmentation_methods, dtype=float)
-    for i in range(len(full_sim_mat)):
-        for j in range(len(full_sim_mat)):
-            scores = []
-            for k in range(len(data)):
-                scores.append(calc_jaccard(data.iloc[k, i+2],
-                                           data.iloc[k, j+2]))
-            full_sim_mat.iloc[i, j] = np.mean(pd.Series(scores).dropna())
-    print(full_sim_mat)
-
+    calc_similarity_matrix(segmentation_methods=segmentation_methods,
+                           metrics=metrics,
+                           data=data[segmentation_methods])
     # validation_data = pd.read_csv("manual_label_sample_combined.csv",
     #                               skiprows=502, header=None)
     # validation_results1 = pd.DataFrame(
@@ -89,6 +68,23 @@ def main():
     # ))
 
 
+def calc_similarity_matrix(metrics, segmentation_methods, data):
+    for metric in metrics:
+        print("Similarity matrix for", metric.__name__ + ":\n\n")
+
+        sim_mat = pd.DataFrame(
+            0, segmentation_methods, segmentation_methods, dtype=float)
+        for i in range(len(sim_mat)):
+            for j in range(len(sim_mat)):
+                scores = []
+                for k in range(len(data)):
+                    scores.append(metric(data.iloc[k, i],
+                                         data.iloc[k, j]))
+                sim_mat.iloc[i, j] = np.mean(pd.Series(scores).dropna())
+        print(sim_mat)
+        print("\n \n")
+
+
 def set_ngrams(file, n=1):
     df = pd.read_csv(file, sep="\t", header=None)
     df.iloc[:, 0] = df.iloc[:, 0].astype(dtype="str")
@@ -99,7 +95,7 @@ def set_ngrams(file, n=1):
 # Uses the Instant Segment algorithm to segment a list of words (https://github.com/djc/instant-segment)
 
 
-def is_segment(words, unigrams, bigrams):
+def instant_segment(words, unigrams, bigrams):
     words = words.astype(dtype="str")
     words = words.apply(
         lambda x: ''.join([i if 97 <= ord(i) <= 122 else '' for i in x]))
@@ -135,20 +131,10 @@ def split_segmentation(segmentation):
     return segments
 
 
-def validate(seg_results, validation):
-    if len(seg_results) != len(validation):
-        print("Length of inputs must match.")
-        print(len(seg_results), len(validation))
-        return
-    total = 0
-    correct = 0
-    for i in range(len(seg_results)):
-        seg_result = seg_results.iloc[i, :]
-        val_result = validation.iloc[i, :]
-        total += 1
-        if seg_result == val_result:
-            correct += 1
-    return correct/total
+def calc_exact_match(word1, word2):
+    if word1 == word2:
+        return True
+    return False
 
 
 def calc_pipe_distance(word1, word2):
