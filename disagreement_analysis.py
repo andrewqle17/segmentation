@@ -30,3 +30,5 @@ for subset in subsets:
     if subset == set():
         continue
     find_disagreements(data, list(subset))
+
+print(disagreements.iloc[:, 8].value_counts())
